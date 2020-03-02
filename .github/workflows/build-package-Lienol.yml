@@ -52,23 +52,21 @@ jobs:
     - name: Clone openwrt source code
       run: git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
 
-    - name: Update feeds
-      run: cd openwrt && ./scripts/feeds update -a
-
-    - name: Install feeds
-      run: cd openwrt && ./scripts/feeds install -a
+    - name: Update and Install feeds
+      run: |
+        cd openwrt 
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
       
     - name: Prepare targets
       id: po2lmo
       run: |
-        REP=$(basename "${REPF}")
-        mv -vf ../src "package/${REP}"
-        test -d "package/${REP}/tools/po2lmo"
+        mv -vf ../src "package/luci-app-passwall"
+        test -d "package/luci-app-passwall/tools/po2lmo"
 
     - name: Prebuild po2lmo host tool
       if: success()
       run: |
-        REP=$(basename "${REPF}")
         pushd "package/luci-app-passwall/tools/po2lmo"
         make && sudo make install
         pushd "package/luci-app-v2ray-server/tools/po2lmo"
