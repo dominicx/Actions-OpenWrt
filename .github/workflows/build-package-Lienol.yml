@@ -69,8 +69,6 @@ jobs:
       run: |
         pushd "package/luci-app-passwall/tools/po2lmo"
         make && sudo make install
-        pushd "package/luci-app-v2ray-server/tools/po2lmo"
-        make && sudo make install
 
     - name: SSH connection to Actions
       uses: P3TERX/debugger-action@master
