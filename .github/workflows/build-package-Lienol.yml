@@ -38,6 +38,9 @@ jobs:
         wget -q "${URL}"
         tar xJf openwrt-sdk-*.tar.xz -C ../
         mv -f "${GITHUB_WORKSPACE}" ../src
+        rm -rf ../src/openwrt-sdk-*.tar.xz
+        rm -rf ../src/.github
+        rm -rf ../src/.git
         mv ../openwrt-sdk-* "${GITHUB_WORKSPACE}"
 
     - name: Install dependencies
@@ -69,20 +72,12 @@ jobs:
       run: |
         pushd "package/luci-app-passwall/tools/po2lmo"
         make && sudo make install
-
-    - name: SSH connection to Actions
-      uses: P3TERX/debugger-action@master
-      if: env.SSH_ACTIONS == 'true'
       
     - name: Load custom configuration
       run: |
         [ -e files ] && mv files openwrt/files
-        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
-        chmod +x $DIY_SH
-        cd openwrt
-        ../$DIY_SH
-        cp .config ../
-        
+        [ -e package/luci-app-passwall/$CONFIG_FILE ] && mv "package/luci-app-passwall/${CONFIG_FILE}" openwrt/.config
+
     - name: Download package
       id: package
       run: |
@@ -91,7 +86,13 @@ jobs:
         make download -j8
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
+        cp .config ../
     
+    
+    - name: SSH connection to Actions
+      uses: P3TERX/debugger-action@master
+      if: env.SSH_ACTIONS == 'true'
+      
     - name: change package source location
       run: |
         mv -vf openwrt/package/feeds/lienol/chinadns-ng/ "package/chinadns-ng"
