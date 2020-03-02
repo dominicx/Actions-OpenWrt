@@ -13,7 +13,7 @@ on:
 env:
   REPO_URL: https://github.com/Lienol/openwrt
   REPO_BRANCH: dev-19.07
-  URL: https://downloads.openwrt.org/releases/19.07.2/targets/x86/64/openwrt-sdk-19.07.2-x86-64_gcc-7.5.0_musl.Linux-x86_64.tar.xz  
+  URL: https://downloads.openwrt.org/snapshots/targets/x86/64/openwrt-sdk-x86-64_gcc-8.3.0_musl.Linux-x86_64.tar.xz
   REPF: ${{ github.repository }}
   PKGN: ${{ 'luci-app-passwall' }}
   CONFIG_FILE: .config
