@@ -95,23 +95,16 @@ jobs:
       
     - name: change package source location
       run: |
-        mv -vf openwrt/package/feeds/lienol/chinadns-ng/ "package/chinadns-ng"
-        mv -vf openwrt/package/feeds/lienol/dns2socks/ "package/dns2socks"
-        mv -vf openwrt/package/feeds/lienol/ipt2socks/ "package/ipt2socks"
-        mv -vf openwrt/package/feeds/lienol/pdnsd-alt/ "package/pdnsd-alt"
-        mv -vf openwrt/package/feeds/lienol/shadowsocksr-libev/ "package/shadowsocksr-libev"
-        mv -vf openwrt/package/feeds/lienol/tcping/ "package/tcping"
-        mv -vf openwrt/package/feeds/lienol/trojan/ "package/trojan"
-        mv -vf openwrt/package/feeds/lienol/v2ray/ "package/v2ray"
-        mv -vf openwrt/package/feeds/lienol/luci-app-v2ray-server/ "package/luci-app-v2ray-server"
-        mv -vf openwrt/package/feeds/lienol/luci-app-passwall/ "package/luci-app-passwall"
+        mv -vf feeds/lienol/lienol/* ../package/
+        mv -vf feeds/lienol/package/* ../package/
+        mv -vf feeds/lienol/others/* ../package/
         make defconfig
 
     - name: Build target
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
-        make package/package/chinadns-ng/compile -j$(nproc) V=s
+        make package/chinadns-ng/compile -j$(nproc) V=s
         make package/package/dns2socks/compile -j$(nproc) V=s
         make package/package/ipt2socks/compile -j$(nproc) V=s
         make package/package/pdnsd-alt/compile -j$(nproc) V=s
