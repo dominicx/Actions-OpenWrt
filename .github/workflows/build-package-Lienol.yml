@@ -1,13 +1,4 @@
-#=================================================
-# https://github.com/P3TERX/Actions-OpenWrt
-# Description: Build OpenWrt using GitHub Actions
-# Lisence: MIT
-# Author: P3TERX
-# Blog: https://p3terx.com
-#=================================================
-
 name: Build OpenWrt Package for Lienol
-
 on:
   release:
     types: published
@@ -16,43 +7,49 @@ on:
       - master
     paths:
       - '.package'
-#  schedule:
-#    - cron: 0 8 * * 5
 #  watch:
 #    types: started
 
 env:
   REPO_URL: https://github.com/Lienol/openwrt
   REPO_BRANCH: dev-19.07
+  URL: https://downloads.openwrt.org/releases/19.07.2/targets/x86/64/openwrt-sdk-19.07.2-x86-64_gcc-7.5.0_musl.Linux-x86_64.tar.xz  
+  REPF: ${{ github.repository }}
+  PKGN: ${{ 'luci-app-passwall' }}
   CONFIG_FILE: .config
   DIY_SH: diy.sh
   SSH_ACTIONS: true
   UPLOAD_BIN_DIR: true
   UPLOAD_FIRMWARE: false
-  TZ: Asia/Shanghai
+  TZ: Asia/Shangha
 
 jobs:
   build:
     runs-on: ubuntu-latest
     if: github.event.repository.owner.id == github.event.sender.id
-
+    
+  
     steps:
-    - name: Checkout
-      uses: actions/checkout@master
+    - name: Checkout - ${{ github.ref }}
+      uses: actions/checkout@v1
 
-    - name: Initialization environment
-      env:
-        DEBIAN_FRONTEND: noninteractive
+    - name: Prepare SDK ENV
+      run: |
+        wget -q "${URL}"
+        tar xJf openwrt-sdk-*.tar.xz -C ../
+        mv -f "${GITHUB_WORKSPACE}" ../src
+        mv ../openwrt-sdk-* "${GITHUB_WORKSPACE}"
+
+    - name: Install dependencies
       run: |
         sudo swapoff /swapfile
         sudo rm -rf /swapfile /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
         sudo -E apt-get -qq update
-        sudo -E apt-get -qq install build-essential asciidoc binutils bzip2 gawk gettext git libncurses5-dev libz-dev patch python3 unzip zlib1g-dev lib32gcc1 libc6-dev-i386 subversion flex uglifyjs git-core gcc-multilib p7zip p7zip-full msmtp libssl-dev texinfo libglib2.0-dev xmlto qemu-utils upx libelf-dev autoconf automake libtool autopoint device-tree-compiler g++-multilib
+        sudo -E apt-get -y install build-essential asciidoc binutils bzip2 gawk gettext git libncurses5-dev libz-dev patch unzip zlib1g-dev lib32gcc1 libc6-dev-i386 subversion git-core gcc-multilib libelf-dev autoconf automake libtool
         sudo -E apt-get -qq autoremove --purge
         sudo -E apt-get -qq clean
-        curl -fsSL https://raw.githubusercontent.com/P3TERX/dotfiles/master/.bashrc >> ~/.bashrc
 
-    - name: Clone source code
+    - name: Clone openwrt source code
       run: git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
 
     - name: Update feeds
@@ -60,56 +57,65 @@ jobs:
 
     - name: Install feeds
       run: cd openwrt && ./scripts/feeds install -a
-
-    - name: Load custom configuration
+      
+    - name: Prepare targets
+      id: po2lmo
       run: |
-        [ -e files ] && mv files openwrt/files
-        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
-        chmod +x $DIY_SH
-        cd openwrt
-        ../$DIY_SH
+        REP=$(basename "${REPF}")
+        mv -vf openwrt/package/feeds/lienol/chinadns-ng/ "package/chinadns-ng"
+        mv -vf openwrt/package/feeds/lienol/dns2socks/ "package/dns2socks"
+        mv -vf openwrt/package/feeds/lienol/ipt2socks/ "package/ipt2socks"
+        mv -vf openwrt/package/feeds/lienol/pdnsd-alt/ "package/pdnsd-alt"
+        mv -vf openwrt/package/feeds/lienol/shadowsocksr-libev/ "package/shadowsocksr-libev"
+        mv -vf openwrt/package/feeds/lienol/tcping/ "package/tcping"
+        mv -vf openwrt/package/feeds/lienol/trojan/ "package/trojan"
+        mv -vf openwrt/package/feeds/lienol/v2ray/ "package/v2ray"
+        mv -vf openwrt/package/feeds/lienol/luci-app-v2ray-server/ "package/luci-app-v2ray-server"
+        mv -vf openwrt/package/feeds/lienol/luci-app-passwall/ "package/luci-app-passwall"
+        test -d "package/luci-app-passwall/tools/po2lmo"
+        test -d "package/luci-app-v2ray-server/tools/po2lmo"
 
-
-    - name: Download package
-      id: package
+    - name: Prebuild po2lmo host tool
+      if: success()
       run: |
-        cd openwrt
-        make defconfig
-        make download -j8
-        find dl -size -1024c -exec ls -l {} \;
-        find dl -size -1024c -exec rm -f {} \;
-    
+        REP=$(basename "${REPF}")
+        pushd "package/luci-app-passwall/tools/po2lmo"
+        make && sudo make install
+        pushd "package/luci-app-v2ray-server/tools/po2lmo"
+        make && sudo make install
+
     - name: SSH connection to Actions
       uses: P3TERX/debugger-action@master
       if: env.SSH_ACTIONS == 'true'
-
-    - name: Compile the firmware
-      id: compile
+      
+    - name: Load custom configuration
+      env:
+        DEBIAN_FRONTEND: noninteractive
+        CONFIG_FILE: '.config'
       run: |
-        cd openwrt
-        echo -e "$(nproc) thread compile"
-        make -j$(nproc) || make -j1 V=s
-        echo "::set-output name=status::success"
+        REP=$(basename "${REPF}")
+        [ -e "package/${REP}/${CONFIG_FILE}" ] && mv "${CONFIG}" .config
+        make defconfig
 
-    - name: Upload bin directory
-      uses: actions/upload-artifact@master
-      if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
-      with:
-        name: OpenWrt_directory
-        path: openwrt/bin
-
-    - name: Organize files
-      id: organize
-      if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
+    - name: Build target
+      env:
+        DEBIAN_FRONTEND: noninteractive
       run: |
-        cd openwrt/bin/targets/*/*
-        rm -rf packages
-        echo "::set-env name=FIRMWARE::$PWD"
-        echo "::set-output name=status::success"
-
-    - name: Upload firmware directory
-      uses: actions/upload-artifact@master
-      if: steps.organize.outputs.status == 'success' && !cancelled()
+        make package/package/chinadns-ng/compile -j$(nproc) V=s
+        make package/package/dns2socks/compile -j$(nproc) V=s
+        make package/package/ipt2socks/compile -j$(nproc) V=s
+        make package/package/pdnsd-alt/compile -j$(nproc) V=s
+        make package/package/shadowsocksr-libev/compile -j$(nproc) V=s
+        make package/package/tcping/compile -j$(nproc) V=s
+        make package/package/trojan/compile -j$(nproc) V=s
+        make package/package/v2ray/compile -j$(nproc) V=s
+        make package/package/luci-app-v2ray-server/compile -j$(nproc) V=s
+        make package/package/luci-app-passwall/compile -j$(nproc) V=s
+        mkdir ../bin
+        find bin/ -type f -name "*.ipk" | xargs -t -i mv -vf {} ../bin
+    
+    - name: Upload - push to artifact file
+      uses: actions/upload-artifact@v1
       with:
-        name: OpenWrt_firmware
-        path: ${{ env.FIRMWARE }}
+        name: ${{ format('{0}', github.workflow) }}
+        path: ../bin
