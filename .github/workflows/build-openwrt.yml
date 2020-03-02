@@ -84,23 +84,12 @@ jobs:
 
     - name: Compile the firmware
       id: compile
-      if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
       run: |
         cd openwrt
         echo -e "$(nproc) thread compile"
         make -j$(nproc) || make -j1 V=s
         echo "::set-output name=status::success"
       
-    - name: Compile the packages
-      id: compile2
-      if: env.UPLOAD_FIRMWARE == 'false' && !cancelled()
-      run: |
-        cd openwrt
-        echo -e "$(nproc) thread compile"
-        make package/compile -j$(nproc) || make package/compile -j1 V=s
-        make package/install
-        echo "::set-output name=status::success"
-
     - name: Upload bin directory
       uses: actions/upload-artifact@master
       if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
